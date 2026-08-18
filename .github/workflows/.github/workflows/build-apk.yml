@@ -11,14 +11,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Unzip Android project
+
+      - name: Find and unzip Android project
         run: |
-          unzip AQUA_TDS_Pro_Android_GitHub_iPhone.zip
+          echo "Files in repository:"
           ls -la
-          ls -la AQUA_TDS_Pro_Android_GitHub
+
+          ZIPFILE=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
+
+          echo "ZIP found:"
+          echo "$ZIPFILE"
+
+          unzip "$ZIPFILE" -d extracted
+
+          echo "Extracted files:"
+          find extracted -maxdepth 3 -type f | head -50
+
+          PROJECT_DIR=$(dirname "$(find extracted -name settings.gradle | head -n 1)")
+
+          echo "Android project found at:"
+          echo "$PROJECT_DIR"
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -26,19 +45,27 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
+
       - name: Build APK
-        working-directory: AQUA_TDS_Pro_Android_GitHub
-        run: gradle :app:assembleDebug --stacktrace
+        run: |
+          cd "$PROJECT_DIR"
+          gradle :app:assembleDebug --stacktrace
+
 
       - name: Prepare APK
         run: |
           mkdir -p output
-          cp AQUA_TDS_Pro_Android_GitHub/app/build/outputs/apk/debug/app-debug.apk "output/AQUA-TDS-Pro.apk"
+
+          cp \
+          "$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk" \
+          "output/AQUA-TDS-Pro.apk"
+
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
